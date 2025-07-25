@@ -5,3 +5,4 @@ Features:
 --Graphical User Interface
 --Randomization
 --Path Finding Algorithm
+--Rendering
