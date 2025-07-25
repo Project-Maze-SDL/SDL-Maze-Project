@@ -3,29 +3,23 @@
 #include <SDL2/SDL_ttf.h>
 #include <string>
 #include <iostream>
+#include <stack>
+#include <utility>
+#include <random>
+#include <algorithm>
+
 using namespace std;
 
 const int SCREEN_WIDTH = 640; //16*40
 const int SCREEN_HEIGHT = 480; //12*40
 const int CELL_SIZE = 40;
+random_device rd;
+mt19937 gen(rd());
 
 enum GameState { MENU, PLAYING, WIN };
 
 // Maze structure (1 = wall, 0 = path, 2 = start, 3 = exit)
-const int maze[12][16] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1},
-    {1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1},
-    {1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1},
-    {1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-};
+int maze[12][16];
 
 struct Player {
     float x, y;
@@ -76,6 +70,7 @@ bool init(Game& game) {
         return false;
     }
 
+    
     // Load textures
     SDL_Surface* surface = IMG_Load("assets/wall.png");
     if (!surface) {
@@ -188,7 +183,7 @@ void handleInput(Game& game) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
-            game.state = WIN; // Just to exit the game loop
+            game.state=WIN;// Just to exit the game loop
         }
         
         if (game.state == MENU && event.type == SDL_KEYDOWN) {
@@ -271,11 +266,44 @@ void close(Game& game) {
     SDL_Quit();
 }
 
+void carvePath(int x, int y) {
+    int directions[4][2] = {{0, -2}, {0, 2}, {-2, 0}, {2, 0}};
+    shuffle(begin(directions), end(directions), gen);
+
+    for (int i = 0; i < 4; i++) {
+        int nx = x + directions[i][0];
+        int ny = y + directions[i][1];
+
+        if (nx > 0 && nx < 16 && ny > 0 && ny < 12 && maze[ny][nx] == 1) {
+            maze[ny][nx] = 0;
+            maze[y + (ny - y)/2][x + (nx - x)/2] = 0;
+            
+            // Render each step (optional - shows maze generation)
+            //renderMaze(game);
+            //SDL_Delay(50); // Small delay to see the generation
+            
+            carvePath(nx, ny);
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
+
+    int i,j;
+
+    for(i=0;i<12;i++){
+        for(j=0;j<16;j++){
+            maze[i][j]=1;
+        }
+    }
+    maze[1][1] = 2;
+    maze[10][14] = 3;
+
+    carvePath(1, 1);
     
     // Set start and exit
-    maze[1][1] = 0;
-    maze[SIZE-2][SIZE-2] = 0;
+    maze[1][1] = 2;
+    maze[10][14] = 3;
     
     Game game;
     
