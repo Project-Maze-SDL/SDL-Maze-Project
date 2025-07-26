@@ -15,9 +15,9 @@ https://github.com/user-attachments/assets/b091f5f9-e9d7-4e9c-9f54-418bdc483f60
 
 ##  Features
 
- --  Graphical User Interface (GUI): Visual representation of the maze and the solution path. ( SDL Library )
- --  Pathfinding Algorithm: Automatically finds a path through the maze. ( DFS and Backtracking )
- --  Random Maze Generation: A new maze is generated every time the program runs. ( DFS )
+ --  Graphical User Interface (GUI): Visual representation of the maze and the solution path. ( SDL Library )<br>
+ --  Pathfinding Algorithm: Automatically finds a path through the maze. ( DFS and Backtracking )<br>
+ --  Random Maze Generation: A new maze is generated every time the program runs. ( DFS )<br>
  --  Cross-platform: Works on Linux, macOS, and Windows.
 
 ---
