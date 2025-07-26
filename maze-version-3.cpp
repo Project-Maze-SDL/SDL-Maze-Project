@@ -19,7 +19,7 @@ mt19937 gen(rd());
 enum GameState { MENU, PLAYING, WIN };
 
 // Maze structure (1 = wall, 0 = path, 2 = start, 3 = exit)
-int maze[12][16];
+int maze[12][16],vis[12][16],sol_state=0;
 
 struct Player {
     float x, y;
@@ -28,17 +28,46 @@ struct Player {
     SDL_Texture* texture;
 };
 
+struct Button {
+    SDL_Rect rect;
+    SDL_Color normalColor;
+    SDL_Color hoverColor;
+    bool isHovered;
+    std::string text;
+    
+    Button(int x, int y, int w, int h, SDL_Color normal, SDL_Color hover, std::string txt)
+        : rect{x,y,w,h}, normalColor(normal), hoverColor(hover), isHovered(false), text(txt) {}
+};
+
 struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_Texture* wallTexture;
     SDL_Texture* playerTexture;
     SDL_Texture* exitTexture;
+    SDL_Texture* pathTexture;
     TTF_Font* font;
     Player player;
+    Button viewPathButton;
     GameState state;
     int score;
     Uint32 startTime;
+
+    Game() : 
+        window(nullptr),
+        renderer(nullptr),
+        wallTexture(nullptr),
+        playerTexture(nullptr),
+        exitTexture(nullptr),
+        pathTexture(nullptr),
+        font(nullptr),
+        player{0,0,0,0,0,0,nullptr},
+        viewPathButton{0,0,0,0,{0,0,0,0},{0,0,0,0},""},
+        state(MENU),
+        score(0),
+        startTime(0)
+    {}
+
 };
 
 bool init(Game& game) {
@@ -70,7 +99,10 @@ bool init(Game& game) {
         return false;
     }
 
-    
+    SDL_Color btnNormal = {100, 100, 255, 255};  // Blue
+    SDL_Color btnHover = {150, 150, 255, 255};   // Lighter blue
+    game.viewPathButton = Button(SCREEN_WIDTH-150, 0, 140, 40, btnNormal, btnHover, "Find Path");
+
     // Load textures
     SDL_Surface* surface = IMG_Load("assets/wall.png");
     if (!surface) {
@@ -94,6 +126,14 @@ bool init(Game& game) {
         return false;
     }
     game.exitTexture = SDL_CreateTextureFromSurface(game.renderer, surface);
+    SDL_FreeSurface(surface);
+
+    surface = IMG_Load("assets/path.png");
+    if (!surface) {
+        cerr << "Couldn't load path texture! Error: " << IMG_GetError() <<endl;
+        return false;
+    }
+    game.pathTexture = SDL_CreateTextureFromSurface(game.renderer, surface);
     SDL_FreeSurface(surface);
 
     // Load font
@@ -129,6 +169,7 @@ void renderText(Game& game, const std::string& text, int x, int y, SDL_Color col
 }
 
 void renderMaze(Game& game) {
+    
     for (int row = 0; row < 12; row++) {
         for (int col = 0; col < 16; col++) {
             SDL_Rect cell = {col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE};
@@ -137,6 +178,27 @@ void renderMaze(Game& game) {
                 SDL_RenderCopy(game.renderer, game.wallTexture, NULL, &cell);
             } else if (maze[row][col] == 3) {
                 SDL_RenderCopy(game.renderer, game.exitTexture, NULL, &cell);
+            }
+            else if(maze[row][col]==4){
+                SDL_RenderCopy(game.renderer, game.pathTexture, NULL, &cell);
+            }
+        }
+    }
+}
+
+void rendervis(Game& game) {
+    for (int row = 0; row < 12; row++) {
+        for (int col = 0; col < 16; col++) {
+            SDL_Rect cell = {col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE};
+            
+            if (vis[row][col] == 1) {
+                SDL_RenderCopy(game.renderer, game.wallTexture, NULL, &cell);
+            } 
+            else if (vis[row][col] == 3) {
+                SDL_RenderCopy(game.renderer, game.exitTexture, NULL, &cell);
+            }
+            else if(vis[row][col]==4){
+                SDL_RenderCopy(game.renderer, game.pathTexture, NULL, &cell);
             }
         }
     }
@@ -150,6 +212,20 @@ void renderPlayer(Game& game) {
         game.player.height
     };
     SDL_RenderCopy(game.renderer, game.player.texture, NULL, &playerRect);
+}
+
+void renderButton(Game& game, const Button& btn) {
+    // Set color based on hover state
+    SDL_Color color = btn.isHovered ? btn.hoverColor : btn.normalColor;
+    SDL_SetRenderDrawColor(game.renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(game.renderer, &btn.rect);
+    
+    // Draw border
+    SDL_SetRenderDrawColor(game.renderer, 255, 255, 255, 255);
+    SDL_RenderDrawRect(game.renderer, &btn.rect);
+    
+    // Draw text
+    renderText(game, btn.text, btn.rect.x + 10, btn.rect.y + 10, {255, 255, 255, 255});
 }
 
 bool checkCollision(Game& game, float x, float y) {
@@ -199,6 +275,24 @@ void handleInput(Game& game) {
                 game.player.y = 40.0f;
             }
         }
+
+        else if (event.type == SDL_MOUSEMOTION) {
+            // Check if mouse is hovering over button
+            game.viewPathButton.isHovered = 
+                (event.motion.x >= game.viewPathButton.rect.x && 
+                 event.motion.x <= game.viewPathButton.rect.x + game.viewPathButton.rect.w &&
+                 event.motion.y >= game.viewPathButton.rect.y && 
+                 event.motion.y <= game.viewPathButton.rect.y + game.viewPathButton.rect.h);
+        }
+        else if (event.type == SDL_MOUSEBUTTONDOWN) {
+            if (event.button.button == SDL_BUTTON_LEFT && 
+                game.viewPathButton.isHovered) {
+
+                sol_state=1;
+                return;
+                
+            }
+        }
     }
     
     if (game.state == PLAYING) {
@@ -212,6 +306,59 @@ void handleInput(Game& game) {
         if (keystates[SDL_SCANCODE_RIGHT]) game.player.velX = 2.0f;
     }
 }
+
+void copymaze(){
+    for(int i = 0; i < 12; i++){
+        for(int j = 0; j < 16; j++){
+            vis[i][j] = (maze[i][j] == 1 || maze[i][j] == 3) ? maze[i][j] : 0;
+        }
+    }
+}
+
+bool findPath(Game& game, int row, int col) {
+    // Check bounds
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_QUIT) {
+        exit(0);  // optional: quit early if closed during pathfinding
+    }
+}
+
+    if (row < 0 || row >= 12 || col < 0 || col >= 16) return false;
+
+    // Check if we reached the exit
+    if (maze[row][col] == 3) {
+        vis[row][col] = 4; // Mark exit as part of path
+        rendervis(game);
+        SDL_RenderPresent(game.renderer);
+        SDL_Delay(20);
+        return true;
+    }
+
+    // Check if current cell is valid
+    if (maze[row][col] == 1 || vis[row][col] == 4) return false;
+
+    // Mark current cell as part of path
+    vis[row][col] = 4;
+
+    // Try all directions (right, left, down, up)
+    if (findPath(game, row, col + 1) ||   // right
+        findPath(game, row, col - 1) ||   // left
+        findPath(game, row + 1, col) ||   // down
+        findPath(game, row - 1, col)) {   // up
+        return true;
+    }
+
+    // Backtrack
+    vis[row][col] = 0;
+    rendervis(game);
+    SDL_RenderPresent(game.renderer);
+    SDL_Delay(40);
+    
+    return false;
+}
+
+
 
 void update(Game& game) {
     if (game.state != PLAYING) return;
@@ -237,9 +384,12 @@ void render(Game& game) {
         renderText(game, "Press ENTER to Start", SCREEN_WIDTH/2 - 120, SCREEN_HEIGHT/2 + 20, {255, 255, 255, 255});
     }
     else if (game.state == PLAYING) {
-        renderMaze(game);
+        //renderMaze(game);
+        if(sol_state==0) renderMaze(game);
+        else rendervis(game);
+        //rendervis(game);
         renderPlayer(game);
-        
+        renderButton(game, game.viewPathButton);
         // Display timer
         std::string timeText = "Time: " + std::to_string((SDL_GetTicks() - game.startTime) / 1000);
         renderText(game, timeText, 10, 10, {255, 255, 255, 255});
@@ -305,26 +455,35 @@ int main(int argc, char* argv[]) {
     maze[1][1] = 2;
     maze[10][14] = 3;
     
-    Game game;
+    Game game1;
     
-    if (!init(game)) {
-        close(game);
+    if (!init(game1)) {
+        close(game1);
         return 1;
     }
     
     bool running = true;
     while (running) {
-        handleInput(game);
-        update(game);
-        render(game);
+        handleInput(game1);
+        update(game1);
+
+        if(sol_state){
+            copymaze();
+
+            findPath(game1,(int)game1.player.x/CELL_SIZE,(int)game1.player.y/CELL_SIZE);
+            SDL_Delay(5000);
+            sol_state=0;
+        }
+
+        render(game1);
         
-        if (game.state == WIN && SDL_GetTicks() - game.startTime > 5000) {
+        if (game1.state == WIN && SDL_GetTicks() - game1.startTime > 5000) {
             running = false;
         }
         
         SDL_Delay(20); // ~60 FPS
     }
     
-    close(game);
+    close(game1);
     return 0;
 }
