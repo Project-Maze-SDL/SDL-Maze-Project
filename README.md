@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/b091f5f9-e9d7-4e9c-9f54-418bdc483f60
 
 To build and run the project, you need the following:
 
-- SDL2 Library 
+- SDL2 Library (https://github.com/libsdl-org/SDL)
 - A C++ compiler (`g++`, `clang++`, or compatible)
 
 ---
