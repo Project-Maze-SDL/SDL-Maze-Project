@@ -4,6 +4,9 @@ An interactive maze-solving program built using C++, enhanced with a GUI and ran
 
 ---
 
+##  Screenshot
+![maze](https://github.com/user-attachments/assets/ef897c34-e72e-4dc2-96ad-63ef0afbc4f4)
+
 ##  Preview
 https://github.com/user-attachments/assets/b091f5f9-e9d7-4e9c-9f54-418bdc483f60
 
