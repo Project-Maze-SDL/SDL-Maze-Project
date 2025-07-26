@@ -1,6 +1,6 @@
 #  Maze Solver Project
 
-An interactive maze-solving program built using C++, enhanced with a GUI and random maze generation. This project demonstrates pathfinding algorithms in a visually engaging way.
+An interactive maze-solving program built using C++, enhanced with GUI using __SDL Graphics Library__ and random maze generation using __Depth First Search (DFS)__. This project demonstrates pathfinding algorithms using __DFS__ and __Backtracking__ algorithm in a visually engaging way. 
 
 ---
 
